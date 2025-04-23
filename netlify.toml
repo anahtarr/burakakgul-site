@@ -1,0 +1,5 @@
+[[redirects]]
+  from = "https://buraknazifakgul.com/*"
+  to = "https://burakakgul.com/:splat"
+  status = 301
+  force = true
