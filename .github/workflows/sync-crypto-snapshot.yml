@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/sync-crypto-snapshot.yml'
   schedule:
-    - cron: '*/5 * * * *'
+    # Offset from common minute boundaries to reduce scheduler congestion.\n    - cron: '3-58/5 * * * *'
   workflow_dispatch:
 
 permissions:
