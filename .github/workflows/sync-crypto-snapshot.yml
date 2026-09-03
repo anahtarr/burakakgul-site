@@ -21,25 +21,79 @@ jobs:
 
       - name: Fetch latest snapshot from Gist
         shell: bash
+        env:
+          GIST_ID: 23dae85f63e3a431126e51d7362af63d
+          GIST_FILE: chatgpt_snapshot.json
         run: |
           set -euo pipefail
           mkdir -p crypto-data
-          curl --fail --silent --show-error --location --retry 3 \
-            'https://gist.githubusercontent.com/anahtarr/23dae85f63e3a431126e51d7362af63d/raw/chatgpt_snapshot.json' \
-            -o crypto-data/chatgpt_snapshot.json.tmp
 
-          python3 - <<'PY'
+          api_tmp="$(mktemp)"
+          snapshot_tmp="$(mktemp)"
+          trap 'rm -f "$api_tmp" "$snapshot_tmp"' EXIT
+
+          cache_bust="$(date +%s)"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            --header 'Cache-Control: no-cache' \
+            "https://api.github.com/gists/$GIST_ID?cache_bust=$cache_bust" \
+            -o "$api_tmp"
+
+          raw_url="$(
+            python3 - "$api_tmp" "$GIST_ID" "$GIST_FILE" <<'PY'
           import json
-          from pathlib import Path
-          p = Path('crypto-data/chatgpt_snapshot.json.tmp')
-          d = json.loads(p.read_text())
-          assert d.get('schema_version') == 1, 'unexpected schema_version'
-          assert d.get('generated_at'), 'generated_at missing'
-          assert d.get('metrics'), 'metrics missing'
-          print('snapshot ok:', d['generated_at'])
+          import sys
+          from urllib.parse import urlparse
+
+          api_path, gist_id, filename = sys.argv[1:]
+          with open(api_path, encoding="utf-8") as handle:
+              gist = json.load(handle)
+
+          try:
+              raw_url = gist["files"][filename]["raw_url"]
+          except (KeyError, TypeError):
+              raise SystemExit(f"{filename!r} not found in Gist API response")
+
+          parsed = urlparse(raw_url)
+          parts = parsed.path.strip("/").split("/")
+          expected_prefix = ["anahtarr", gist_id, "raw"]
+
+          if (
+              parsed.scheme != "https"
+              or parsed.netloc != "gist.githubusercontent.com"
+              or parts[:3] != expected_prefix
+              or len(parts) < 5
+              or not parts[3]
+              or parts[-1] != filename
+          ):
+              raise SystemExit(f"unexpected raw_url from Gist API: {raw_url}")
+
+          print(raw_url)
+          PY
+          )"
+
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            --header 'Cache-Control: no-cache' \
+            "${raw_url}?cache_bust=$cache_bust" \
+            -o "$snapshot_tmp"
+
+          python3 - "$snapshot_tmp" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+          with open(path, encoding="utf-8") as handle:
+              data = json.load(handle)
+
+          assert data.get("schema_version") == 1, "unexpected schema_version"
+          assert data.get("generated_at"), "generated_at missing"
+          assert data.get("metrics"), "metrics missing"
+          print("snapshot ok:", data["generated_at"])
           PY
 
-          mv crypto-data/chatgpt_snapshot.json.tmp crypto-data/chatgpt_snapshot.json
+          mv "$snapshot_tmp" crypto-data/chatgpt_snapshot.json
+          echo "Resolved revision URL: $raw_url"
 
       - name: Commit if changed
         shell: bash
