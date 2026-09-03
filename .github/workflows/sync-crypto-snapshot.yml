@@ -1,0 +1,56 @@
+name: Sync crypto snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-crypto-snapshot.yml'
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch latest snapshot from Gist
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p crypto-data
+          curl --fail --silent --show-error --location --retry 3 \
+            'https://gist.githubusercontent.com/anahtarr/23dae85f63e3a431126e51d7362af63d/raw/chatgpt_snapshot.json' \
+            -o crypto-data/chatgpt_snapshot.json.tmp
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('crypto-data/chatgpt_snapshot.json.tmp')
+          d = json.loads(p.read_text())
+          assert d.get('schema_version') == 1, 'unexpected schema_version'
+          assert d.get('generated_at'), 'generated_at missing'
+          assert d.get('metrics'), 'metrics missing'
+          print('snapshot ok:', d['generated_at'])
+          PY
+
+          mv crypto-data/chatgpt_snapshot.json.tmp crypto-data/chatgpt_snapshot.json
+
+      - name: Commit if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crypto-data/chatgpt_snapshot.json
+          if git diff --cached --quiet; then
+            echo 'No snapshot change.'
+            exit 0
+          fi
+          git commit -m 'chore: sync crypto snapshot'
+          git push
