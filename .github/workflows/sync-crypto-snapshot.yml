@@ -21,7 +21,7 @@ jobs:
       - name: Fetch latest snapshot from Gist
         shell: bash
         env:
-          GIST_ID: 23dae85f63e3a431126e51d7362af63d
+          GIST_ID: dc5a9d7e18d664a4c2f27de0d20b4871
           GIST_FILE: chatgpt_snapshot.json
         run: |
           set -euo pipefail
