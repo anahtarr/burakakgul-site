@@ -5,9 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sync-crypto-snapshot.yml'
-  schedule:
-    # Offset from common minute boundaries to reduce scheduler congestion.
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+  # Gli_Izmir publishes directly. Keep this workflow only as a manual fallback.
   workflow_dispatch:
 
 permissions:
