@@ -1,0 +1,57 @@
+name: Reduce Hakkimda bottom space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reduce-about-bottom-space.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reduce only Hakkımda bottom spacing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('index.html')
+          html = path.read_text(encoding='utf-8')
+
+          old_desktop = "padding:2.35rem clamp(3rem,8vw,9rem) 6rem;"
+          new_desktop = "padding:2.35rem clamp(3rem,8vw,9rem) 2.25rem;"
+          if old_desktop not in html:
+              raise RuntimeError('Expected desktop bottom spacing not found; refusing broad edit.')
+          html = html.replace(old_desktop, new_desktop, 1)
+
+          old_mobile = "padding:2.1rem 1.4rem 4.5rem;"
+          new_mobile = "padding:2.1rem 1.4rem 2.1rem;"
+          if old_mobile not in html:
+              raise RuntimeError('Expected mobile bottom spacing not found.')
+          html = html.replace(old_mobile, new_mobile, 1)
+
+          path.write_text(html, encoding='utf-8')
+          print('Reduced bottom space under final quote only.')
+          PY
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No change to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Reduce Hakkımda bottom spacing"
+          git pull --rebase origin main
+          git push origin main
