@@ -3,3 +3,8 @@
   to = "https://burakakgul.com/:splat"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.svg"
+  status = 200
