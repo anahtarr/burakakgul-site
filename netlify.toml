@@ -6,5 +6,5 @@
 
 [[redirects]]
   from = "/favicon.ico"
-  to = "/favicon.svg"
+  to = "/favicon.gif"
   status = 200
